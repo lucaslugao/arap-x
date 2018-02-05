@@ -9,7 +9,6 @@ services:
       - "80:80"
     volumes:
       - ./app:/opt/app
-      - notused:/opt/app/node_modules
     environment:
       - "TZ=Europe/Paris"
 volumes:

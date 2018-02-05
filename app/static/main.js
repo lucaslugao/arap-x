@@ -4,6 +4,7 @@ var handlerObjects = [];
 var positions = [];
 var options = {iterations: 4};
 
+var fixed_handle_toggle = true;
 var hovering = null;
 
 var handlerGeometry = new THREE.CubeGeometry(3, 3, 3);
@@ -68,7 +69,7 @@ function addHandler(target, vertexID) {
       mainObject.dirty = true;
   };
 
-  if (object.position.y < 0.5) object.toggleState();
+  if (object.position.y < 10) object.toggleState();
 
   object.vertexID = vertexID;
   object.move = function() {
@@ -174,14 +175,27 @@ function sendObject() {
   }
 }
 
-function requestDeformation() {
+
+function updateObject() {
   if (mainObject !== null) {
-    if (mainObject.dirty) sendObject();
+    mainObject.dirty = false;
+    console.log('[updateObject] New object sent!');
+    ws.send(JSON.stringify({
+      action: 'update',
+      fixed: getFixed(handlerObjects)
+    }));
+  }
+}
+
+
+function requestDeformation(iterations = options.iterations) {
+  if (mainObject !== null) {
+    if (mainObject.dirty) updateObject();
     console.log('[requestDeformation] New fixed positions sent!');
     ws.send(JSON.stringify({
       action: 'deform',
       vertices: packageVertices(mainObject.geometry.vertices),
-      iterations: options.iterations
+      iterations: iterations
     }));
   }
 }
@@ -250,6 +264,13 @@ function init() {
   var gui = new dat.GUI();
 
   gui.add({Calculate: requestDeformation}, 'Calculate');
+  gui.add({Toggle_non_fixed: function(){
+    fixed_handle_toggle = !fixed_handle_toggle;
+    handlerObjects.forEach(function(v){
+      if(v.state == 0)
+        v.visible = fixed_handle_toggle;
+    })
+  }}, 'Toggle_non_fixed');
   gui.add(options, 'iterations', 1, 35).step(1);
   gui.open();
 
@@ -281,6 +302,9 @@ function init() {
 
   transformControl.addEventListener('mouseUp', function(e) {
     delayHideTransform();
+    /*if(e.target.object.state == 1)
+      requestDeformation();*/
+    
   });
 
   transformControl.addEventListener('objectChange', function(e) {
@@ -309,6 +333,8 @@ function init() {
     } else if (e.keyCode == 65) {
       if (hovering !== null) {
         hovering.toggleState();
+        /*if(hovering.state == 1)
+          requestDeformation();*/
       }
     } else if (e.keyCode == 82) {
       if (hovering !== null) {
