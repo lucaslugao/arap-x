@@ -24,13 +24,32 @@
       font-size: 13px;
       text-align: center;
     }
+    #instructions {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      width: 160px;
+      padding: 5px;
+      font-family: Monospace;
+      font-size: 13px;
+      text-align: left;
+      font-size: 6pt;
+    }
   </style>
 </head>
 
 <body>
 
-  <div id="container"></div>
   <div id="info">As Rigid as Possible - INF555</div>
+  <div id="instructions"> <h3> Controls:</h3>
+    A - Toggle fixed/not-fixed <br>
+    R - Reset to original position<br>
+    Space - Calculate deformation<br>
+    Mouse1 (on scene) - Rotate camera<br>
+    Mouse2 (on scene) - Pan camera<br>
+    Mouse1 (on vertex) - Move vertex<br>
+  </div>
+  <div id="container"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/89/three.min.js" integrity="sha256-dhMyiyXEwZJ//9n8lUerz//P7hJX9SyNJZ5ZZ3Osozo="
     crossorigin="anonymous"></script>

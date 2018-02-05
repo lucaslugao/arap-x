@@ -16,13 +16,13 @@ var transformControl;
 
 var mainObject = null;
 
-if (window.location.protocol == "https:") {
-  var ws_scheme = "wss://";
+if (window.location.protocol == 'https:') {
+  var ws_scheme = 'wss://';
 } else {
-  var ws_scheme = "ws://"
+  var ws_scheme = 'ws://'
 };
 
-var ws = new WebSocket(ws_scheme + location.host + "/engine");
+var ws = new WebSocket(ws_scheme + location.host + '/engine');
 
 ws.addEventListener('open', function() {
   console.log('Python backend connected!');
@@ -65,8 +65,7 @@ function addHandler(target, vertexID) {
   object.toggleState = function() {
     object.state = 1 - object.state;
     object.material = handlerMaterials[object.state];
-    if(mainObject !== null)
-      mainObject.dirty = true;
+    if (mainObject !== null) mainObject.dirty = true;
   };
 
   if (object.position.y < 10) object.toggleState();
@@ -99,16 +98,15 @@ function packageFaces(faces) {
 
 function getFixed(handlers) {
   var fixed = handlers
-  .filter(function(v) {
-    return v.state == 1;
-  })
-  .map(function(v) {
-    return v.vertexID;
-  });
-  
-  if(fixed.length == 0)
-    fixed.push(0);
-  
+                  .filter(function(v) {
+                    return v.state == 1;
+                  })
+                  .map(function(v) {
+                    return v.vertexID;
+                  });
+
+  if (fixed.length == 0) fixed.push(0);
+
   return fixed;
 }
 /*
@@ -120,46 +118,46 @@ handlerObjects[183].toggleState(); requestDeformation();
 function load(scene) {
   var url_string = window.location.href
   var url = new URL(url_string);
-  var c = url.searchParams.get("model");
-  if(c === null)
-    c = 'cube'
-  loadOBJ('static/models/' + c  +'.obj', function(object) {
-    object.material = new THREE.MeshPhongMaterial({
-      color: 0xffffff,
-      specular: 0xffffff,
-      shininess: 20,
-      morphTargets: true,
-      vertexColors: THREE.FaceColors,
-      flatShading: true
-    });
-    /*object.material =
-        new THREE.MeshLambertMaterial({color: 0x0000ff, wireframe: true});*/
-    object.material.side = THREE.DoubleSide;
-    object.geometry = new THREE.Geometry().fromBufferGeometry(object.geometry);
-    object.geometry.mergeVertices();
-    scene.add(object);
-    object.geometry.vertices
-        .filter(function(v, i) {
-          return true;
-        })
-        .forEach(function(v, i) {
-          addHandler(object, i);
-        });
-    mainObject = object;
-    object.geometry.originalPackedVertices =
-        packageVertices(object.geometry.vertices)
-
-    ws.addEventListener('message', function(m) {
-      console.log('[ws:onmessage] Received new vertices!');
-      vertices = JSON.parse(m.data);
-      vertices.forEach(function(v, i) {
-        mainObject.geometry.vertices[i].set(v.x, v.y, v.z);
-        handlerObjects[i].position.set(v.x, v.y, v.z);
+  var c = url.searchParams.get('model');
+  if (c === null) c = 'cube'
+    loadOBJ('static/models/' + c + '.obj', function(object) {
+      object.material = new THREE.MeshPhongMaterial({
+        color: 0xffffff,
+        specular: 0xffffff,
+        shininess: 20,
+        morphTargets: true,
+        vertexColors: THREE.FaceColors,
+        flatShading: true
       });
-      mainObject.geometry.verticesNeedUpdate = true;
-    })
-    sendObject();
-  });
+      /*object.material =
+          new THREE.MeshLambertMaterial({color: 0x0000ff, wireframe: true});*/
+      object.material.side = THREE.DoubleSide;
+      object.geometry =
+          new THREE.Geometry().fromBufferGeometry(object.geometry);
+      object.geometry.mergeVertices();
+      scene.add(object);
+      object.geometry.vertices
+          .filter(function(v, i) {
+            return true;
+          })
+          .forEach(function(v, i) {
+            addHandler(object, i);
+          });
+      mainObject = object;
+      object.geometry.originalPackedVertices =
+          packageVertices(object.geometry.vertices)
+
+      ws.addEventListener('message', function(m) {
+        console.log('[ws:onmessage] Received new vertices!');
+        vertices = JSON.parse(m.data);
+        vertices.forEach(function(v, i) {
+          mainObject.geometry.vertices[i].set(v.x, v.y, v.z);
+          handlerObjects[i].position.set(v.x, v.y, v.z);
+        });
+        mainObject.geometry.verticesNeedUpdate = true;
+      })
+      sendObject();
+    });
 }
 
 function sendObject() {
@@ -180,10 +178,8 @@ function updateObject() {
   if (mainObject !== null) {
     mainObject.dirty = false;
     console.log('[updateObject] New object sent!');
-    ws.send(JSON.stringify({
-      action: 'update',
-      fixed: getFixed(handlerObjects)
-    }));
+    ws.send(
+        JSON.stringify({action: 'update', fixed: getFixed(handlerObjects)}));
   }
 }
 
@@ -264,14 +260,18 @@ function init() {
   var gui = new dat.GUI();
 
   gui.add({Calculate: requestDeformation}, 'Calculate');
-  gui.add({Toggle_non_fixed: function(){
-    fixed_handle_toggle = !fixed_handle_toggle;
-    handlerObjects.forEach(function(v){
-      if(v.state == 0)
-        v.visible = fixed_handle_toggle;
-    })
-  }}, 'Toggle_non_fixed');
+  gui.add(
+      {
+        ToggleNonFixed: function() {
+          fixed_handle_toggle = !fixed_handle_toggle;
+          handlerObjects.forEach(function(v) {
+            if (v.state == 0) v.visible = fixed_handle_toggle;
+          })
+        }
+      },
+      'ToggleNonFixed');
   gui.add(options, 'iterations', 1, 35).step(1);
+
   gui.open();
 
 
@@ -304,7 +304,7 @@ function init() {
     delayHideTransform();
     /*if(e.target.object.state == 1)
       requestDeformation();*/
-    
+
   });
 
   transformControl.addEventListener('objectChange', function(e) {
@@ -383,4 +383,14 @@ function animate() {
 
 function render() {
   renderer.render(scene, camera);
+}
+window.addEventListener( 'resize', onWindowResize, false );
+
+function onWindowResize(){
+
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize( window.innerWidth, window.innerHeight );
+
 }
