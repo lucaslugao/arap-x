@@ -12,10 +12,13 @@ print("ARAP")
 
 app = Flask(__name__)
 sockets = Sockets(app)
+
 def analyseMatrix(M):
   print('Negative eigenvalues:', [(v,i) for (v,i) in enumerate(linalg.eigvals(M)) if v < 0])
   print('Symmetric: ', np.allclose(M, M.T))
+
 def getAngles(vertices, triangle):
+    """ Calculate the angles given a vertice list and a triangle of ids """
     a = vertices[triangle[0]]
     b = vertices[triangle[1]]
     c = vertices[triangle[2]]
@@ -30,6 +33,7 @@ def getAngles(vertices, triangle):
             angleBetween(a, b, c)]
 
 def calculateWeigths(mesh):
+  """ Calculate the weights ij based on the contagents """
   mesh['N'] = [set() for i in range(mesh['nV'])]
   mesh['weights'] = [dict() for i in range(mesh['nV'])]
 
@@ -56,13 +60,8 @@ def calculateWeigths(mesh):
     mesh['weights'][f[1]][f[2]] = mesh['weights'][f[1]].get(f[2], 0) + cot[0]
     mesh['weights'][f[2]][f[1]] = mesh['weights'][f[2]].get(f[1], 0) + cot[0]
 
-  if False:
-    for i in range(mesh['nV']):
-      for j in mesh['N'][i]:
-        assert(mesh['weights'][i][j] == mesh['weights'][j][i])
-        assert(i in mesh['N'][j])
-
 def calculateEnergy(mesh):
+  """ Calculate the energy and energy derivative for debugging purposes """
   E = 0
   for i in range(mesh['nV']): 
     for j in mesh['N'][i]:
@@ -75,13 +74,13 @@ def calculateEnergy(mesh):
   return E, linalg.norm(D)
 
 def calculateRigidRotations(mesh):
-  oldR = None
-  if 'R' in mesh.keys():
-    oldR = [np.array(x) for x in mesh['R']]
+  """ Calculate the rigid rotations that minimises the mesh energy """
   mesh['R'] = [None for i in range(mesh['nV'])]
 
+  # sign flipping matrix
   correction = np.eye(3)
   correction[2][2] = -1
+
   for i in range(mesh['nV']):
     P = np.zeros((3, len( mesh['N'][i])))
     P_prime = np.zeros((3, len( mesh['N'][i])))
@@ -91,28 +90,8 @@ def calculateRigidRotations(mesh):
       for r in range(3):
         P[r][c] = mesh['p'][j][r]
         P_prime[r][c] = mesh['p_prime'][j][r]
-    S = np.matmul(np.matmul(P, D), P_prime.T)
 
-    if False:
-      Sc = np.zeros((3, 3))
-      for j in mesh['N'][i]:
-          eij = mesh['p'][i] - mesh['p'][j]
-          eij_prime_t = mesh['p_prime'][i] - mesh['p_prime'][j]
-          #if i == 14:
-          #  print(eij, eij_prime_t, eij * eij_prime_t)
-          Sc += mesh['weights'][i][j] * np.array([eij]) * np.array([eij_prime_t]).T
-    if False:
-      if oldR is not None:
-        E = 0
-        oldE = 0
-        for j in mesh['N'][i]:
-          E += mesh['weights'][i][j] * linalg.norm((mesh['p_prime'][i] - mesh['p_prime'][j]) - mesh['R'][i].dot(mesh['p'][i] - mesh['p'][j]))**2
-          oldE += mesh['weights'][i][j] * linalg.norm((mesh['p_prime'][i] - mesh['p_prime'][j]) - oldR[i].dot(mesh['p'][i] - mesh['p'][j]))**2
-        if oldE < E:
-          print('Bad rotation!')
-          print(mesh['R'][i])
-          print(oldR[i])
-    
+    S = np.matmul(np.matmul(P, D), P_prime.T)
     U, s, V = linalg.svd(S)
     V = V.T
     mesh['R'][i] = np.matmul(V, U.T)
@@ -121,6 +100,7 @@ def calculateRigidRotations(mesh):
     
           
 def prefactorLMatrix(mesh):
+  """ Prefactor the L sparse matrix """
   row = []
   col = []
   data = []
@@ -132,6 +112,7 @@ def prefactorLMatrix(mesh):
       else:
           data.append(sum([mesh['weights'][i][j] for j in mesh['N'][i]]))
           for j in mesh['N'][i]:
+            # Don't include a fixed point in the LHS of the system
             if j not in mesh['fixed']:
               row.append(i)
               col.append(j)
@@ -142,7 +123,9 @@ def prefactorLMatrix(mesh):
   mesh['L'] = L
   
 def deform(mesh):
+  """ Deform the vertices positions using the prefactore L matrix """
   def get_b_entry(i):
+    """ Auxiliary function to calculate the i-th row of b """
     if i in mesh['fixed']:
       return mesh['p_prime'][i]
     bi = np.zeros(3)
@@ -151,36 +134,17 @@ def deform(mesh):
       Rij = mesh['R'][i] + mesh['R'][j]
       pij = mesh['p'][i] - mesh['p'][j]
       bi += (wij/2) * Rij.dot(pij)
+      # Adds the correction of the fixed point to b
       if j in mesh['fixed']:
         bi += mesh['weights'][i][j] * mesh['p_prime'][j]
     return bi
   b = np.array([ get_b_entry(i) for i in range(mesh['nV'])])
-
-         
-  #new_p = linalg.solve(mesh['L'].todense(), b)
-  #denseL = mesh['L'].todense()
-  new_p = mesh['factor'](b)
-  #print('Negative eigenvalues:', [(v,i) for (v,i) in enumerate(linalg.eigvals(denseL)) if v < 0])
-  #print('Symmetric: ', np.allclose(denseL, denseL.T))
-  #for j in mesh['fixed']:
-  #  print(linalg.norm(new_p[j]- mesh['p_prime'][j]))
-  if False:
-    #Lp = mesh['L'].todense().dot(new_p)
-    for i in range(mesh['nV']):
-      if i not in mesh['fixed']:
-        lhs = np.zeros(3)
-        rhs = np.zeros(3)
-        for j in mesh['N'][i]:
-          lhs += mesh['weights'][i][j] * new_p[i]
-          lhs -= mesh['weights'][i][j] * new_p[j]
-          rhs += (mesh['weights'][i][j]/2) * (mesh['R'][i] + mesh['R'][j]).dot(mesh['p'][i] - mesh['p'][j])
-        #print(linalg.norm(lhs-Lp[i]) < 1.0e-9, lhs,'<->', Lp[i], ' => ' )
-        #print(lhs,'<->', rhs, ' => ', linalg.norm(lhs-rhs))
-  mesh['p_prime'] = new_p
+  mesh['p_prime'] = mesh['factor'](b)
 
 
 @sockets.route('/engine')
 def engine(ws):
+    """ WebSocket endpoint """
     print("Client connected {}".format(ws))
     mesh = {}
     while not ws.closed:
@@ -191,11 +155,12 @@ def engine(ws):
       now = datetime.datetime.utcnow().isoformat() + 'Z'
       print(now, msgObj['action'])
       
+      # Reads and process each action accordingly 
+
       if(msgObj['action'] == 'create'):
         mesh['p'] = [np.array(x, dtype= np.dtype('Float64')) for x in msgObj['vertices']] 
         mesh['faces'] = msgObj['faces']
         mesh['nV'] = len(mesh['p'])
-
 
       if(msgObj['action'] == 'update' or msgObj['action'] == 'create'):
         mesh['fixed'] = set(msgObj['fixed'])
@@ -221,15 +186,18 @@ def engine(ws):
 
     print("Client disconnected {}".format(ws))
 
+
 @app.route('/static/<path:path>')
 def serve_static(path):
+  """ Serve the static files in the /static/ http endpoint """
   return send_from_directory('static', path)
-
 
 @app.route('/', defaults={'file': 'index.html'})
 def serve_results(file):
+    """ Special route for the index.html file """
     return send_from_directory('static', file)
 
+# Server configuration and binding
 from gevent import pywsgi
 from geventwebsocket.handler import WebSocketHandler
 

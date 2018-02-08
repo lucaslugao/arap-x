@@ -30,14 +30,13 @@ ws.addEventListener('open', function() {
   animate();
 });
 
-
-
 function loadOBJ(path, cb) {
   var loader = new THREE.OBJLoader();
   loader.load(
       path,
       function(object) {
         object.traverse(function(child) {
+          console.log(object);
           if (child instanceof THREE.Mesh) {
             cb(child);
           }
@@ -68,7 +67,7 @@ function addHandler(target, vertexID) {
     if (mainObject !== null) mainObject.dirty = true;
   };
 
-  if (object.position.y < 10) object.toggleState();
+  if (object.position.y < 2) object.toggleState();
 
   object.vertexID = vertexID;
   object.move = function() {
@@ -109,12 +108,7 @@ function getFixed(handlers) {
 
   return fixed;
 }
-/*
 
-handlerObjects[183].position.set(10,235,255); handlerObjects[183].move();
-handlerObjects[183].toggleState(); requestDeformation();
-
-*/
 function load(scene) {
   var url_string = window.location.href
   var url = new URL(url_string);
@@ -173,7 +167,6 @@ function sendObject() {
   }
 }
 
-
 function updateObject() {
   if (mainObject !== null) {
     mainObject.dirty = false;
@@ -182,7 +175,6 @@ function updateObject() {
         JSON.stringify({action: 'update', fixed: getFixed(handlerObjects)}));
   }
 }
-
 
 function requestDeformation(iterations = options.iterations) {
   if (mainObject !== null) {
@@ -384,6 +376,7 @@ function animate() {
 function render() {
   renderer.render(scene, camera);
 }
+
 window.addEventListener( 'resize', onWindowResize, false );
 
 function onWindowResize(){
